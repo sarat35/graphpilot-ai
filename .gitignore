@@ -41,3 +41,11 @@ htmlcov/
 
 # Cursor
 .cursor/
+
+# Frontend
+node_modules/
+.pnpm-store/
+.next/
+out/
+.vercel/
+*.tsbuildinfo

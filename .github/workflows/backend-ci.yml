@@ -1,0 +1,41 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        working-directory: apps/api
+        run: uv sync --all-groups
+
+      - name: Ruff
+        working-directory: apps/api
+        run: uv run ruff check .
+
+      - name: Black
+        working-directory: apps/api
+        run: uv run black --check .
+
+      - name: Tests
+        working-directory: apps/api
+        run: uv run pytest
+
+      - name: Build Package
+        working-directory: apps/api
+        run: uv build
+
+      - name: Docker Build
+        run: docker build apps/api

@@ -1,64 +1,22 @@
-.PHONY: help install sync run lint format fix test check precommit clean
-PACKAGE = app
+.PHONY: api-sync api-run api-test api-check web-install web-dev web-build
 
-help:
-	@echo "Available commands:"
-	@echo "  make install     Install dependencies"
-	@echo "  make sync        Sync dependencies"
-	@echo "  make run         Run the application"
-	@echo "  make lint        Run Ruff"
-	@echo "  make format      Format code with Black"
-	@echo "  make fix         Auto-fix Ruff issues and format"
-	@echo "  make test        Run tests"
-	@echo "  make check       Run lint, format check and tests"
-	@echo "  make precommit   Run all pre-commit hooks"
-	@echo "  make clean       Remove caches"
+api-sync:
+	cd apps/api && uv sync --all-groups
 
-install:
-	uv sync
+api-run:
+	cd apps/api && uv run buyseconds
 
-sync:
-	uv sync
+api-test:
+	cd apps/api && uv run pytest
 
-run:
-	uv run python -m $(PACKAGE).main
+api-check:
+	cd apps/api && uv run ruff check . && uv run black --check . && uv run pytest
 
-test:
-	uv run pytest
+web-install:
+	cd apps/web && npx --yes pnpm@10.20.0 install --frozen-lockfile
 
-run:
-	uv run python -m $(PACKAGE).main
+web-dev:
+	cd apps/web && npx --yes pnpm@10.20.0 dev
 
-lint:
-	uv run ruff check .
-
-format:
-	uv run black .
-
-fix:
-	uv run ruff check . --fix
-	uv run black .
-
-test:
-	uv run pytest
-
-build:
-	uv build
-
-docker:
-	docker build -t python-ai-starter .
-
-check:
-	uv run ruff check .
-	uv run black --check .
-	uv run pytest
-	uv build
-
-precommit:
-	uv run pre-commit run --all-files
-
-clean:
-	find . -type d -name "__pycache__" -exec rm -rf {} +
-	find . -type d -name ".pytest_cache" -exec rm -rf {} +
-	find . -type d -name ".ruff_cache" -exec rm -rf {} +
-	find . -type f -name "*.pyc" -delete
+web-build:
+	cd apps/web && npx --yes pnpm@10.20.0 build
