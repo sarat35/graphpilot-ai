@@ -17,11 +17,13 @@ export function SignUpForm() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorKind, setErrorKind] = useState<"credentials" | "network" | null>(null)
   const [errorMessage, setErrorMessage] = useState("")
   const [fieldError, setFieldError] = useState<string | null>(null)
+  const [confirmationRequired, setConfirmationRequired] = useState(false)
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -32,11 +34,19 @@ export function SignUpForm() {
       setFieldError("Password must be at least 8 characters")
       return
     }
+    if (password !== confirmPassword) {
+      setFieldError("Passwords don’t match")
+      return
+    }
 
     setIsSubmitting(true)
     try {
-      await signUp({ name, email, password })
-      router.push("/search")
+      const result = await signUp({ name, email, password })
+      if (result.needsEmailConfirmation) {
+        setConfirmationRequired(true)
+      } else {
+        router.push("/search")
+      }
     } catch (error) {
       if (error instanceof NetworkError) {
         setErrorKind("network")
@@ -64,6 +74,12 @@ export function SignUpForm() {
           )}
           <AlertTitle>{errorKind === "network" ? "You're offline" : "Couldn't create account"}</AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      )}
+      {confirmationRequired && (
+        <Alert>
+          <AlertTitle>Check your email</AlertTitle>
+          <AlertDescription>Open the confirmation link to activate your BuySeconds account.</AlertDescription>
         </Alert>
       )}
 
@@ -128,6 +144,21 @@ export function SignUpForm() {
           ) : (
             <FieldDescription>Use 8 or more characters with a mix of letters and numbers.</FieldDescription>
           )}
+        </Field>
+        <Field data-invalid={fieldError === "Passwords don’t match" ? true : undefined}>
+          <FieldLabel htmlFor="confirm-password">Confirm password</FieldLabel>
+          <InputGroup>
+            <InputGroupInput
+              id="confirm-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              placeholder="Enter your password again"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              aria-invalid={fieldError === "Passwords don’t match"}
+              required
+            />
+          </InputGroup>
         </Field>
       </FieldGroup>
 

@@ -1,128 +1,154 @@
-# buyseconds
+# BuySeconds
 
-BuySeconds is a monorepo for the web experience and the API service. Each application can be developed and deployed independently.
+BuySeconds is a used-car discovery application. A signed-in customer can describe the car they want, search current marketplace listings, receive up to five ranked matches with source links, save cars, and continue the conversation through the chatbot.
 
-## Applications
+## What it does
 
-- `apps/web` — Next.js frontend.
-- `apps/api` — Python API service, managed with uv.
-- `packages/api-client` — shared/generated frontend API client.
+- Provides Supabase email/password sign-up and sign-in.
+- Collects city, budget, brand, **model**, fuel type, maximum age, and maximum kilometres in a guided Next.js search flow.
+- Uses FastAPI, LangGraph, Pydantic validation, and Google Serper to fetch and rank city-specific marketplace listings.
+- Returns a maximum of five matches and links customers directly to the source listing.
+- Keeps chat conversation context for the browser session.
+- Includes Supabase migrations for the application database, ownership rules, and external search-result storage.
 
-## Local development
+## Project layout
 
-Run the frontend:
-
-```sh
-make web-install
-make web-dev
-```
-
-The frontend is pinned to pnpm 10.20.0, which matches its downloaded lockfile.
-
-Run the API:
-
-```sh
-make api-sync
-make api-run
-```
-
-See [docs/architecture.md](docs/architecture.md) and [docs/api-contract.md](docs/api-contract.md) for the intended application boundaries.
+| Path | Purpose |
+| --- | --- |
+| `apps/web` | Next.js customer web application |
+| `apps/api` | FastAPI service, LangGraph workflows, search integration, and API tests |
+| `supabase` | Supabase configuration and database migrations |
+| `docs` | Product knowledge base, API contract, and architecture design |
 
 ## Prerequisites
 
-- Python 3.12 and [uv](https://docs.astral.sh/uv/)
-- Node.js 20 or later, with npm
-- Docker and Docker Compose (optional)
+- Node.js 20 or later
+- Python 3.12
+- [uv](https://docs.astral.sh/uv/)
+- A Supabase project with email/password authentication enabled
+- A [Google Serper](https://serper.dev/) API key for live product search
+- The Supabase CLI for applying database migrations
 
-## Frontend: build and run
+## Configure the application
 
-The Next.js frontend is in `apps/web`. It uses pnpm 10.20.0, which is pinned to match its lockfile.
+1. Create the server configuration file from the example:
 
-### Development
+   ```sh
+   cp .env.example .env
+   ```
+
+2. In the root `.env`, set the values required by the API:
+
+   ```dotenv
+   PRODUCT_SEARCH_MODE=live
+   GOOGLE_SERPER_API_KEY=...
+   INTELLIGENCE_MODEL_NAME=...
+   SUPABASE_URL=https://<project-ref>.supabase.co
+   SUPABASE_PUBLISHABLE_KEY=...
+   SUPABASE_JWKS_URL=https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
+   ```
+
+   `SUPABASE_JWKS_URL` is optional when `SUPABASE_URL` is set. The API derives it automatically.
+
+3. Create `apps/web/.env.local` with only browser-safe values:
+
+   ```dotenv
+   NEXT_PUBLIC_API_URL=http://localhost:8000
+   NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+   ```
+
+   Never put Google Serper, Supabase secret, database, or Supabase CLI credentials in `.env.local`.
+
+## Set up Supabase
+
+Log in to the Supabase CLI, link the project, then apply the database schema:
 
 ```sh
-make web-install
-make web-dev
+npx supabase login
+npx supabase link --project-ref <project-ref>
+npx supabase db push
 ```
 
-Open http://localhost:3000.
+The migrations create the user profiles, vehicles, saved vehicles, searches, conversations, external search-result storage, indexes, and Row Level Security policies. See [supabase/README.md](supabase/README.md) for more detail.
 
-### Production build
+## Install dependencies
 
-```sh
-make web-build
-cd apps/web
-npx --yes pnpm@10.20.0 start
-```
-
-The production server listens on port 3000 by default.
-
-## Backend: build and run
-
-The FastAPI service is in `apps/api`.
-
-### Development
+From the repository root:
 
 ```sh
 make api-sync
+make web-install
+```
+
+## Run locally
+
+Start the API in one terminal:
+
+```sh
 make api-run
 ```
 
-The API listens on http://localhost:8000. Its interactive OpenAPI documentation is at http://localhost:8000/docs.
+The API is available at <http://localhost:8000>, with interactive documentation at <http://localhost:8000/docs>.
 
-### Production build and run
+Start the web app in a second terminal:
 
 ```sh
-cd apps/api
-uv sync --frozen --no-dev
-APP_ENV=production uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+make web-dev
 ```
 
-### Tests and checks
+Open <http://localhost:3000> and create an account before running a search.
+
+## Test and validate
+
+Run all backend tests:
 
 ```sh
 make api-test
+```
+
+Run backend formatting and lint checks:
+
+```sh
 make api-check
 ```
 
-To build distributable backend packages:
+Run the frontend type check:
 
 ```sh
-cd apps/api
-uv build
+cd apps/web
+./node_modules/.bin/tsc --noEmit
 ```
 
-## Mock API endpoints
+## Search modes
 
-The local backend provides demonstration responses at:
+`PRODUCT_SEARCH_MODE` controls product-search behaviour:
 
-- `GET /health`
-- `GET /api/v1/cars`
-- `GET /api/v1/searches`
-- `GET /api/v1/saved-cars`
-- `GET /api/v1/chatbot/status`
+- `live` — calls Google Serper and ranks marketplace results.
+- `mock` — returns deterministic sample listings for development and automated tests.
 
-## Configuration
+Use `mock` when developing without a Serper key. Automated tests set this mode where they need deterministic results.
 
-The mock flow works without credentials. To configure external services, copy the example environment file and set only the values you need:
+## Useful API endpoints
 
-```sh
-cp .env.example .env
-```
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Confirm the API is running |
+| `POST /api/v1/searches` | Create an authenticated car search |
+| `GET /api/v1/searches/{search_id}/results` | Retrieve ranked source-linked matches |
+| `GET /api/v1/saved-vehicles` | List saved cars |
+| `POST /api/v1/conversations` | Start a chat session |
 
-Docker Compose reads the root `.env` file. For local API development, export configuration values in your shell or place an `.env` file in `apps/api`.
+## Troubleshooting
 
-## Docker
+- **“Failed to fetch” in the web app:** Start the API with `make api-run`, then confirm <http://localhost:8000/health> returns a successful response.
+- **Authentication errors:** Check that the browser public Supabase URL/key match the API `SUPABASE_URL` and that Supabase email/password authentication is enabled.
+- **No live results:** Confirm `PRODUCT_SEARCH_MODE=live`, the Serper key is configured, and use a city and criteria likely to have active listings.
+- **Database migration fails:** Re-run `npx supabase link --project-ref <project-ref>` and ensure the Supabase CLI credentials in the root `.env` are valid.
 
-Build and run the API service directly:
+## Additional documentation
 
-```sh
-docker build -t buyseconds-api apps/api
-docker run --rm --env-file .env -p 8000:8000 buyseconds-api
-```
-
-Or use Docker Compose:
-
-```sh
-docker compose -f infra/docker-compose.yml up --build
-```
+- [Architecture design](docs/architecture-design.md)
+- [Knowledge base](docs/knowledge-base.md)
+- [API contract](docs/api-contract.md)
+- [Supabase database guide](supabase/README.md)

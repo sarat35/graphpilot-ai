@@ -49,18 +49,31 @@ export const viewport: Viewport = {
   ],
 }
 
+function getSupabasePublicConfig() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+  if (!url || !key) {
+    throw new Error("Supabase public configuration is missing.")
+  }
+
+  return { url, key }
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const supabase = getSupabasePublicConfig()
+
   return (
     <html
       lang="en"
       className={`bg-background ${_inter.variable} ${_spaceGrotesk.variable}`}
     >
       <body className="antialiased">
-        <AuthProvider>
+        <AuthProvider supabase={supabase}>
           <TooltipProvider>{children}</TooltipProvider>
         </AuthProvider>
         <Toaster />

@@ -8,6 +8,7 @@ __pycache__/
 .venv/
 .env
 .env.*
+!.env.example
 
 # Build
 build/
@@ -22,6 +23,11 @@ htmlcov/
 
 # Ruff
 .ruff_cache/
+.mypy_cache/
+.pyre/
+.hypothesis/
+.tox/
+.nox/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -36,6 +42,12 @@ htmlcov/
 # Logs
 *.log
 
+# Private credentials and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+
 # Docker
 .docker/
 
@@ -46,6 +58,17 @@ htmlcov/
 node_modules/
 .pnpm-store/
 .next/
+.turbo/
+.swc/
 out/
 .vercel/
 *.tsbuildinfo
+
+# Local database and Supabase CLI state
+*.sqlite
+*.sqlite3
+*.db
+supabase/.temp/
+supabase/.branches/
+
+next phase.md

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { CheckCircle2Icon, MapPinIcon, ChevronLeftIcon, ChevronRightIcon, SearchIcon } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,7 @@ import { RecentSearchesPanel } from "@/components/search/recent-searches-panel"
 import { WIZARD_STEPS, AGE_OPTIONS, DISTANCE_OPTIONS, FUEL_OPTIONS, formatInr } from "@/components/search/wizard-config"
 import { BRANDS, CITIES } from "@/lib/mock-data"
 import { getRecentSearches, addRecentSearch, removeRecentSearch } from "@/lib/recent-searches"
+import { createSearch } from "@/lib/api/product-search"
 import type { FuelType, RecentSearch, SearchCriteria } from "@/lib/types"
 
 type WizardState = {
@@ -29,6 +31,7 @@ type WizardState = {
   minPrice: string
   maxPrice: string
   brand: string | null
+  model: string
   fuelType: FuelType | null
   maxAgeYears: string | null
   maxKilometres: string | null
@@ -39,6 +42,7 @@ const INITIAL_STATE: WizardState = {
   minPrice: "",
   maxPrice: "",
   brand: null,
+  model: "",
   fuelType: null,
   maxAgeYears: null,
   maxKilometres: null,
@@ -50,6 +54,7 @@ function criteriaFromState(state: WizardState): SearchCriteria {
     minPrice: state.minPrice ? Number(state.minPrice) : undefined,
     maxPrice: state.maxPrice ? Number(state.maxPrice) : undefined,
     brand: state.brand ?? undefined,
+    model: state.model.trim() || undefined,
     fuelType: state.fuelType ?? undefined,
     maxAgeYears:
       state.maxAgeYears && state.maxAgeYears !== "any" ? Number(state.maxAgeYears) : undefined,
@@ -61,6 +66,7 @@ function criteriaFromState(state: WizardState): SearchCriteria {
 function labelForCriteria(criteria: SearchCriteria): string {
   const parts: string[] = []
   if (criteria.brand) parts.push(criteria.brand)
+  if (criteria.model) parts.push(criteria.model)
   parts.push(criteria.city || "Any city")
   if (criteria.maxPrice) parts.push(`under ${formatInr(criteria.maxPrice)}`)
   if (criteria.fuelType) parts.push(criteria.fuelType)
@@ -68,10 +74,12 @@ function labelForCriteria(criteria: SearchCriteria): string {
 }
 
 export function SearchWizard() {
+  const router = useRouter()
   const [stepIndex, setStepIndex] = React.useState(0)
   const [state, setState] = React.useState<WizardState>(INITIAL_STATE)
   const [recentSearches, setRecentSearches] = React.useState<RecentSearch[]>([])
   const [submitted, setSubmitted] = React.useState<SearchCriteria | null>(null)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   React.useEffect(() => {
     setRecentSearches(getRecentSearches())
@@ -103,6 +111,7 @@ export function SearchWizard() {
       minPrice: search.criteria.minPrice?.toString() ?? "",
       maxPrice: search.criteria.maxPrice?.toString() ?? "",
       brand: search.criteria.brand ?? null,
+      model: search.criteria.model ?? "",
       fuelType: search.criteria.fuelType ?? null,
       maxAgeYears: search.criteria.maxAgeYears?.toString() ?? null,
       maxKilometres: search.criteria.maxKilometres?.toString() ?? null,
@@ -115,20 +124,37 @@ export function SearchWizard() {
     setRecentSearches(removeRecentSearch(id))
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const criteria = criteriaFromState(state)
-    const entry: RecentSearch = {
-      id: `search-${Date.now()}`,
-      criteria,
-      label: labelForCriteria(criteria),
-      createdAt: new Date().toISOString(),
-      resultCount: 5,
+    setIsSubmitting(true)
+
+    try {
+      const search = await createSearch(criteria)
+      const entry: RecentSearch = {
+        id: search.id,
+        criteria,
+        label: labelForCriteria(criteria),
+        createdAt: new Date().toISOString(),
+        resultCount: search.result_count,
+      }
+      setRecentSearches(addRecentSearch(entry))
+      setSubmitted(criteria)
+      toast.success("Search completed", {
+        description: `${search.result_count} mock product matches are ready.`,
+      })
+      const params = new URLSearchParams()
+      Object.entries(criteria).forEach(([key, value]) => {
+        if (value !== undefined) params.set(key, String(value))
+      })
+      params.set("searchId", search.id)
+      router.push(`/results?${params.toString()}`)
+    } catch (error) {
+      toast.error("Search could not be completed", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      })
+    } finally {
+      setIsSubmitting(false)
     }
-    setRecentSearches(addRecentSearch(entry))
-    setSubmitted(criteria)
-    toast.success("Search saved", {
-      description: "Comparing your top 5 matches is coming in the next build step.",
-    })
   }
 
   function startOver() {
@@ -209,27 +235,40 @@ export function SearchWizard() {
               )}
 
               {step.id === "brand" && (
-                <Field>
-                  <FieldLabel htmlFor="brand-select">Brand</FieldLabel>
-                  <Select
-                    value={state.brand}
-                    onValueChange={(value) => setState((s) => ({ ...s, brand: value }))}
-                  >
-                    <SelectTrigger id="brand-select" className="w-full">
-                      <SelectValue placeholder="Any brand" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {BRANDS.map((brand) => (
-                          <SelectItem key={brand} value={brand}>
-                            {brand}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <FieldDescription>Skip this to compare cars across every brand.</FieldDescription>
-                </Field>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="brand-select">Brand</FieldLabel>
+                    <Select
+                      value={state.brand}
+                      onValueChange={(value) => setState((s) => ({ ...s, brand: value }))}
+                    >
+                      <SelectTrigger id="brand-select" className="w-full">
+                        <SelectValue placeholder="Any brand" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {BRANDS.map((brand) => (
+                            <SelectItem key={brand} value={brand}>
+                              {brand}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="vehicle-model">Model</FieldLabel>
+                    <InputGroup>
+                      <InputGroupInput
+                        id="vehicle-model"
+                        placeholder="e.g. Nexon EV, City, Swift"
+                        value={state.model}
+                        onChange={(event) => setState((current) => ({ ...current, model: event.target.value }))}
+                      />
+                    </InputGroup>
+                    <FieldDescription>Optional. Add a model to prioritise that vehicle in the live results.</FieldDescription>
+                  </Field>
+                </FieldGroup>
               )}
 
               {step.id === "fuel" && (
@@ -307,9 +346,9 @@ export function SearchWizard() {
                 Back
               </Button>
               {isReviewStep ? (
-                <Button type="button" onClick={handleSubmit}>
+                <Button type="button" onClick={handleSubmit} disabled={isSubmitting}>
                   <SearchIcon data-icon="inline-start" />
-                  Compare top matches
+                  {isSubmitting ? "Searching…" : "Compare top matches"}
                 </Button>
               ) : (
                 <Button type="button" onClick={goNext} disabled={!canProceed()}>
@@ -340,6 +379,7 @@ function ReviewStep({ state }: { state: WizardState }) {
           : "No limit",
     },
     { label: "Brand", value: state.brand ?? "Any brand" },
+    { label: "Model", value: state.model || "Any model" },
     { label: "Fuel type", value: state.fuelType ?? "Any fuel type" },
     {
       label: "Maximum age",

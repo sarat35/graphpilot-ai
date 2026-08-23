@@ -47,9 +47,7 @@ export function SignInForm() {
       const from = searchParams.get("from")
       router.replace(from && from.startsWith("/") ? from : "/search")
     } catch (error) {
-      setFormError(
-        error instanceof Error ? error.message : "Something went wrong. Please try again."
-      )
+      setFormError(error instanceof Error ? error.message : "Something went wrong. Please try again.")
       setIsSubmitting(false)
     }
   }
@@ -74,7 +72,7 @@ export function SignInForm() {
             aria-invalid={!!emailError}
             onChange={(event) => setEmail(event.target.value)}
             onBlur={() => setEmailTouched(true)}
-            placeholder="demo@buyseconds.com"
+            placeholder="you@example.com"
           />
           <FieldError>{emailError}</FieldError>
         </Field>
@@ -88,7 +86,7 @@ export function SignInForm() {
             aria-invalid={!!passwordError}
             onChange={(event) => setPassword(event.target.value)}
             onBlur={() => setPasswordTouched(true)}
-            placeholder="demo1234"
+            placeholder="Your password"
           />
           <FieldError>{passwordError}</FieldError>
         </Field>
@@ -102,10 +100,6 @@ export function SignInForm() {
             "Sign In"
           )}
         </Button>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Demo credentials: <span className="font-mono">demo@buyseconds.com</span> /{" "}
-          <span className="font-mono">demo1234</span>
-        </p>
       </FieldGroup>
     </form>
   )

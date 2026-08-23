@@ -40,6 +40,7 @@ export interface SearchCriteria {
   minPrice?: number
   maxPrice?: number
   brand?: string
+  model?: string
   fuelType?: FuelType
   maxAgeYears?: number
   maxKilometres?: number
