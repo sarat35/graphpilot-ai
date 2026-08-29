@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { FuelType, SearchCriteria } from "@/lib/types"
 
 type ApiFuelType = Lowercase<FuelType>
+const API_BASE_PATH = "/backend-api"
 
 export type ProductSearchResult = {
   query: string
@@ -95,7 +96,7 @@ function toSearchRequest(criteria: SearchCriteria) {
 async function postAuthenticated<T>(path: string, criteria: SearchCriteria): Promise<T> {
   const accessToken = await getAccessToken()
   const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1${path}`,
+    `${API_BASE_PATH}${path}`,
     {
       method: "POST",
       headers: {
@@ -125,7 +126,7 @@ export async function createSearch(criteria: SearchCriteria): Promise<SearchSumm
 
 async function requestAuthenticated<T>(path: string, init?: RequestInit): Promise<T> {
   const accessToken = await getAccessToken()
-  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/v1${path}`, {
+  const response = await fetch(`${API_BASE_PATH}${path}`, {
     ...init,
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json", ...init?.headers },
   })

@@ -1,0 +1,19 @@
+
+
+Repeat the Test-Driven Development loop for each bounded feature: write a failing test, implement the smallest correct behaviour, then refactor while the tests stay green.
+
+1. **Define the product requirement.** Write the problem, target customers, goals, non-goals, success measures, and acceptance criteria.
+2. **Create the frontend PRD and UI prototype.** Define routes, user flows, responsive states, accessibility expectations, loading/empty/error states, and mock data.
+3. **Create a knowledge base.** Record business vocabulary, decisions, constraints, external dependencies, security rules, and unresolved questions.
+4. **Design the architecture.** Define frontend, API, authentication, database, AI/integration, data-flow, ownership, and operational boundaries before implementation expands.
+5. **Set up source control and environments.** Create `.env.example`, protect secrets, separate browser-safe and server-only configuration, and document local setup.
+6. **Design and migrate the database.** Define schemas, relationships, indexes, migrations, ownership rules, Row Level Security where applicable, and a rollback/recovery approach.
+7. **Implement identity and authorization.** Validate sign-up, sign-in, session refresh, protected routes, token verification, and “customer A cannot access customer B’s data” tests.
+8. **Implement feature slices with TDD.** Build the UI, API contract, validation, service, repository, and tests together for one user flow at a time.
+9. **Validate complete flows with mocks.** Exercise happy paths plus validation, empty, error, timeout, and recovery paths before enabling paid or external services.
+10. **Enable live integrations safely.** Add timeouts, structured validation, source attribution, rate limits, retries where appropriate, and no-secret logging. Verify the real provider with controlled test cases.
+11. **Persist and verify real data.** Replace temporary repositories, test migrations against a non-production environment, prove ownership/RLS, and confirm data survives restarts.
+12. **Prepare for release.** Run automated tests, type/lint checks, accessibility and responsive checks, security review, performance checks, backups, monitoring, alerts, deployment, and rollback validation.
+13. **Operate and improve.** Track product metrics, errors, latency, provider cost/availability, customer feedback, and update the PRD, knowledge base, and architecture when decisions change.
+
+

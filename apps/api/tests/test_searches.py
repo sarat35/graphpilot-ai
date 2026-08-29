@@ -21,7 +21,7 @@ def test_member_can_create_and_retrieve_own_mock_search(monkeypatch) -> None:
         with TestClient(app) as client:
             create_response = client.post(
                 "/api/v1/searches",
-                json={"city": "Bengaluru", "brand": "Maruti Suzuki", "model": "Swift", "limit": 2},
+                json={"city": "Hyderabad", "brand": "Maruti Suzuki", "model": "Swift", "limit": 2},
             )
             search_id = create_response.json()["search"]["id"]
             list_response = client.get("/api/v1/searches")
@@ -47,7 +47,7 @@ def test_member_cannot_read_another_members_search(monkeypatch) -> None:
     app.dependency_overrides[get_current_member] = lambda: owner
     try:
         with TestClient(app) as client:
-            create_response = client.post("/api/v1/searches", json={"city": "Pune"})
+            create_response = client.post("/api/v1/searches", json={"city": "Hyderabad"})
             search_id = create_response.json()["search"]["id"]
         app.dependency_overrides[get_current_member] = lambda: other_member
         with TestClient(app) as client:

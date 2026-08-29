@@ -13,6 +13,15 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    const apiUpstream = process.env.API_UPSTREAM_URL ?? "http://127.0.0.1:8000"
+    return [
+      {
+        source: "/backend-api/:path*",
+        destination: `${apiUpstream}/api/v1/:path*`,
+      },
+    ]
+  },
 }
 
 export default nextConfig

@@ -2,98 +2,92 @@
 
 ## Product purpose
 
-BuySeconds helps Indian used-car customers turn a set of preferences into a short, source-linked shortlist. The customer signs in, chooses a city and optional vehicle preferences, and receives up to five relevant marketplace links rather than having to sift through broad web-search pages.
+BuySeconds helps authenticated used-car shoppers turn preferences into a transparent shortlist of public listings. The current release is intentionally limited to **Hyderabad**. It discovers listings from approved marketplaces, explains why each match ranked where it did, and always preserves the original source link.
 
-The product’s promise is **“Describe what you need; inspect the best available matches.”** A result must always link to its original source and must not be presented as an independently verified fact when it came only from a search snippet.
+The product promise is: **“Describe what you need; inspect the best available matches.”** Search discovery is not vehicle verification. Unknown source data remains unknown.
 
-## Customers and core journey
-
-- **Walk-in guest:** can view public pages and sign in or sign up.
-- **Authenticated customer:** can search, view results, save supported vehicles, and use the chatbot.
+## Core journey
 
 1. The customer signs in with Supabase Auth.
-2. In the guided Search wizard, they select a required city and optional budget, brand, **model**, fuel type, maximum age, and maximum kilometres.
-3. They review the criteria and choose **Compare top matches**.
-4. The app calls the authenticated FastAPI API. The search workflow queries Google Serper, rejects generic category pages where possible, ranks city-relevant marketplace links, and returns no more than five results.
-5. The customer can open a source link directly, edit the search, reuse a recent search, or continue through the chatbot.
+2. They choose Hyderabad and optionally enter budget, brand, model, fuel type, maximum age, and maximum kilometres.
+3. FastAPI validates the request and the LangGraph workflow researches approved marketplaces.
+4. The workflow collects at most 100 unique source candidates, normalizes available evidence, and ranks the best 10.
+5. The customer opens source links or saves a persisted listing snapshot.
+6. A saved listing is refreshed only when its owner opens it. If its source returns 404 or 410, it remains visible as `removed`.
 
 ## Product rules
 
-- City is required. Brand, model, budget, fuel, age, and kilometres are optional preferences.
-- Model is a free-text vehicle-model preference, for example `Nexon EV`, `Swift`, or `City`.
-- Results are capped at five. A live search may return fewer than five when sufficiently specific marketplace listings are unavailable.
-- The app must show source links and must not invent price, year, kilometres, availability, or a “value for money” claim that cannot be supported by the source data.
-- Google Serper is used for discovery only. The application does not scrape marketplaces.
-- Direct marketplace APIs or licensed feeds are required before the application can guarantee five complete, verified vehicle records for every search.
-- Customers may access only their own searches, saved vehicles, and conversations.
+- Only Hyderabad is accepted during this release.
+- Approved discovery sources are Cars24, CarWale, CarTrade, Spinny, and OLX.
+- The research cap is 100 unique candidates across all sources; the response cap is 10 ranked listings.
+- Results must include source attribution. Google snippets are discovery evidence, not confirmed stock.
+- The service must never invent vehicle price, year, mileage, city, fuel type, availability, or condition.
+- Missing data receives no score credit and appears in `unmatched_or_missing_reasons`.
+- A confirmed non-Hyderabad listing is excluded.
+- Only the signed-in owner may read, save, refresh, or remove their records.
 
-## Current implementation
+## Ranking policy
 
-| Area | Current behaviour |
+| Search criterion | Weight | Rule |
+| --- | ---: | --- |
+| City | 20% | Hyderabad must be evidenced; a known mismatch is excluded. |
+| Price | 25% | The listing must fit the selected price range. |
+| Brand and model | 25% | Selected brand/model must occur in source evidence. |
+| Fuel | 10% | Selected fuel type must match. |
+| Age | 10% | Year must meet the maximum-age limit. |
+| Kilometres | 10% | Mileage must be at or below the selected limit. |
+
+When a criterion is not selected, it receives its neutral full weight. Ranking is deterministic; AI may help coordinate research and word explanations, but cannot change score calculation or ordering.
+
+## AI and search vocabulary
+
+| Term | Meaning |
 | --- | --- |
-| Web Counter | Next.js App Router with protected Search, Results, Products, Chatbot, and Account pages. |
-| ID Check | Supabase email/password authentication; protected routes and FastAPI JWT/JWKS verification. |
-| Search Clerk | Async FastAPI endpoints with Pydantic request/response validation and request IDs. |
-| Live discovery | LangGraph search workflow using Google Serper, with city/brand/model/fuel/query ranking and source links. |
-| Chat | LangGraph conversation workflow retains the current conversation in the browser/API-process session and extracts city/fuel preferences. |
-| Warehouse | Supabase migrations and Row Level Security are applied, including `searches.model` and `external_search_results`. |
-| Persistence gap | Active search, saved-vehicle, and conversation repositories are in-memory. They reset when the API restarts; wiring them to Supabase is the next delivery block. |
+| Orchestrator | The LangGraph workflow and its shared LangChain model that controls the bounded search sequence. |
+| Research agent | Agent 1, which selects approved-source searches and calls the Serper middleware. |
+| Ranking agent | Agent 2, which applies deterministic scoring and returns the top 10. |
+| Candidate | A normalized, deduplicated external result before ranking. |
+| Ranked listing | A candidate with rank, match percentage, and explanatory reasons. |
+| Snapshot | Stored source evidence at the time of search or save. It is not a live inventory guarantee. |
+| Removed | A saved listing whose source returned HTTP 404 or 410 during owner-triggered refresh. |
 
-## Architecture boundaries
+## Technical boundaries
 
-- `apps/web` is the **Counter**: presentation, form state, authentication session, navigation, and user feedback.
-- `apps/api` is the **Clerk**: authentication validation, input validation, search orchestration, and owner checks.
-- Supabase Auth is the **ID Check**.
-- Supabase Postgres is the future durable **Warehouse** for private customer records and verified inventory.
-- LangGraph workflows are the **Back Room Specialists** for structured search and conversation handling.
-- Google Serper is an **External Vendor** used only by the Clerk.
+- `apps/web` presents search, results, and saved-listing experiences.
+- `apps/api` owns FastAPI routes, Supabase JWT validation, LangGraph, LangChain agents, provider calls, and repositories.
+- `AI_ORCHESTRATION_MODEL_NAME`, currently `gpt-5.4-mini`, is the single model configuration used by the coordinator and both product-search agents.
+- The research tool wraps `GoogleSerperRun` and `GoogleSerperAPIWrapper`; it is server-side only.
+- LangSmith receives live LangChain/LangGraph traces when enabled. Structured application logs use request IDs and must exclude secrets/tokens.
+- Supabase Postgres stores searches, ranked external results, saved external listings, and availability state. Row Level Security protects private customer records.
 
-See [architecture-design.md](architecture-design.md) for the detailed data flow, security rules, and staged production architecture.
+## Persistence and availability rules
 
-## Engineering principles
+- A durable search stores criteria and its ranked external listings, including raw provider payload, source URL, score, rank, reasons, and retrieval timestamp.
+- Saving an external listing references the persisted result; it does not discard the source URL or snapshot.
+- Opening `GET /api/v1/saved-listings/{id}` is the only automatic availability check.
+- HTTP 404/410 changes the saved record to `removed`; other response codes and temporary network failures do not falsely remove it.
+- There are no scheduled checks or automatic deletion jobs.
 
-1. Keep browser code free of server secrets. Only `NEXT_PUBLIC_*` Supabase values belong in the web application environment.
-2. Validate every API request with Pydantic; do not trust criteria from the browser.
-3. Keep provider calls asynchronous, time-bounded, structured, and behind FastAPI services.
-4. Use exact ownership checks today and Supabase RLS as the durable Warehouse guard.
-5. Preserve loading, empty, and error states; a failed provider call must not leave the customer on an infinite loading screen.
-6. Use tests with mock search mode for deterministic API behaviour. Live Serper calls are an integration concern, not a unit-test dependency.
-7. Never scrape sources or store secrets, tokens, or raw credentials in customer records or logs.
+## Configuration
 
-## Configuration and operation
+The API server requires server-only OpenAI, Google Serper, LangSmith, Supabase, and database settings. The key product-search settings are:
 
-- Root `.env` contains server-side search, Supabase, and Supabase CLI configuration.
-- `apps/web/.env.local` contains only `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-- `PRODUCT_SEARCH_MODE=live` enables Google Serper. `mock` enables deterministic listings for development and automated tests.
-- Apply schema changes with `npx supabase db push` after reviewing migrations in `supabase/migrations`.
+```dotenv
+AI_ORCHESTRATION_MODEL_NAME=gpt-5.4-mini
+PRODUCT_SEARCH_MODE=live
+PRODUCT_SEARCH_ALLOWED_CITY=Hyderabad
+PRODUCT_SEARCH_MAX_CANDIDATES=100
+PRODUCT_SEARCH_TOP_RESULTS=10
+```
 
-## Success measures
+`PRODUCT_SEARCH_MODE=mock` is required for deterministic unit tests and avoids paid provider calls. Live persistence additionally requires `DATABASE_URL` and the ranked external-listings Supabase migration.
 
-- Authenticated search completion rate.
-- Rate of source-link opens from ranked results.
-- Saved-car intent and successful save rate.
-- Zero-result rate, provider error rate, and search latency.
-- Chat-to-search completion rate.
-- Once persistence is connected: returning-customer search and conversation recovery after an API restart.
+## Operational rules
 
-## Next required delivery
+1. Do not put Serper, OpenAI, LangSmith, database, or Supabase secret credentials in browser configuration.
+2. Do not use live Serper or model calls in unit tests.
+3. Apply and review migrations before live persistence is enabled.
+4. Investigate provider errors and zero-result rates with LangSmith traces and request-correlated application logs.
+5. Treat source removal only as a source-status fact; keep the customer’s saved snapshot available for reference.
 
-Replace the in-memory repositories with Supabase/Postgres repositories. Persist each member search and its selected `external_search_results`, then persist saved vehicles and conversation messages. This makes customer history durable and enables reliable ownership/RLS integration tests.
-
-## Reusable application-development checklist
-
-Use this sequence as a high-level guide for future applications. Repeat the Test-Driven Development loop for each bounded feature: write a failing test, implement the smallest correct behaviour, then refactor while the tests stay green.
-
-1. **Define the product requirement.** Write the problem, target customers, goals, non-goals, success measures, and acceptance criteria.
-2. **Create the frontend PRD and UI prototype.** Define routes, user flows, responsive states, accessibility expectations, loading/empty/error states, and mock data.
-3. **Create a knowledge base.** Record business vocabulary, decisions, constraints, external dependencies, security rules, and unresolved questions.
-4. **Design the architecture.** Define frontend, API, authentication, database, AI/integration, data-flow, ownership, and operational boundaries before implementation expands.
-5. **Set up source control and environments.** Create `.env.example`, protect secrets, separate browser-safe and server-only configuration, and document local setup.
-6. **Design and migrate the database.** Define schemas, relationships, indexes, migrations, ownership rules, Row Level Security where applicable, and a rollback/recovery approach.
-7. **Implement identity and authorization.** Validate sign-up, sign-in, session refresh, protected routes, token verification, and “customer A cannot access customer B’s data” tests.
-8. **Implement feature slices with TDD.** Build the UI, API contract, validation, service, repository, and tests together for one user flow at a time.
-9. **Validate complete flows with mocks.** Exercise happy paths plus validation, empty, error, timeout, and recovery paths before enabling paid or external services.
-10. **Enable live integrations safely.** Add timeouts, structured validation, source attribution, rate limits, retries where appropriate, and no-secret logging. Verify the real provider with controlled test cases.
-11. **Persist and verify real data.** Replace temporary repositories, test migrations against a non-production environment, prove ownership/RLS, and confirm data survives restarts.
-12. **Prepare for release.** Run automated tests, type/lint checks, accessibility and responsive checks, security review, performance checks, backups, monitoring, alerts, deployment, and rollback validation.
-13. **Operate and improve.** Track product metrics, errors, latency, provider cost/availability, customer feedback, and update the PRD, knowledge base, and architecture when decisions change.
+See [Prompt-PRD-v0Vercel.md](Prompt-PRD-v0Vercel.md) for acceptance requirements and [architecture.md](architecture.md) for system flow.

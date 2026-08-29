@@ -18,7 +18,7 @@ def test_product_search_returns_structured_mock_results(monkeypatch) -> None:
                 "/api/v1/product-search",
                 headers={"X-Request-ID": "product-search-test"},
                 json={
-                    "city": "Bengaluru",
+                    "city": "Hyderabad",
                     "brand": "Maruti Suzuki",
                     "model": "Swift",
                     "fuel_type": "petrol",
@@ -34,6 +34,7 @@ def test_product_search_returns_structured_mock_results(monkeypatch) -> None:
     assert body["request_id"] == "product-search-test"
     assert body["results"][0]["title"].startswith("2021 Maruti Suzuki Swift")
     assert body["results"][0]["source_url"].startswith("https://example.com/")
+    assert body["results"][0]["match_percentage"] == 100
 
 
 def test_product_search_validates_price_range() -> None:
@@ -48,3 +49,16 @@ def test_product_search_validates_price_range() -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 422
+
+
+def test_product_search_rejects_cities_other_than_hyderabad(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "product_search_mode", "mock")
+    app.dependency_overrides[get_current_member] = authenticated_member
+    try:
+        with TestClient(app) as client:
+            response = client.post("/api/v1/product-search", json={"city": "Bengaluru"})
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
+    assert "Only Hyderabad" in response.text

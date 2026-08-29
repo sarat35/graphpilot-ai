@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.schemas.product_search import ProductListing
+from app.schemas.product_search import RankedProductListing
 
 
 class SearchSummary(BaseModel):
@@ -13,7 +13,7 @@ class SearchSummary(BaseModel):
     model: str | None
     fuel_type: str | None
     status: str
-    result_count: int = Field(ge=0, le=5)
+    result_count: int = Field(ge=0, le=10)
     created_at: datetime
 
 
@@ -23,4 +23,4 @@ class CreateSearchResponse(BaseModel):
 
 class SearchResultsResponse(BaseModel):
     search: SearchSummary
-    results: list[ProductListing] = Field(max_length=5)
+    results: list[RankedProductListing] = Field(max_length=10)

@@ -3,11 +3,13 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.auth.dependencies import CurrentMember, get_current_member
+from app.config.settings import settings
 from app.main import app
 from app.services.conversations import mock_conversation_repository
 
 
-def test_conversation_extracts_city_and_returns_one_follow_up() -> None:
+def test_conversation_extracts_city_and_returns_one_follow_up(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "product_search_mode", "mock")
     member = CurrentMember(id=uuid4(), email="member@example.com")
     app.dependency_overrides[get_current_member] = lambda: member
     mock_conversation_repository.clear()
@@ -26,5 +28,5 @@ def test_conversation_extracts_city_and_returns_one_follow_up() -> None:
     assert replied.status_code == 200
     body = replied.json()
     assert body["conversation"]["criteria"] == {"city": "hyderabad", "fuel_type": "hybrid"}
-    assert body["messages"][-1]["content"].startswith("I found")
-    assert "live matches" in body["messages"][-1]["content"]
+    assert body["messages"][-1]["content"].startswith("Top 2 value matches")
+    assert "Hyderabad" in body["messages"][-1]["content"]

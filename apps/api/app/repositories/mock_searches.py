@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from app.schemas.product_search import ProductListing, ProductSearchRequest
+from app.schemas.product_search import ProductSearchRequest, RankedProductListing
 from app.schemas.searches import SearchSummary
 
 
@@ -11,7 +11,7 @@ class MockSearchRecord:
     id: UUID
     user_id: UUID
     criteria: ProductSearchRequest
-    results: list[ProductListing]
+    results: list[RankedProductListing]
     created_at: datetime
 
     def summary(self) -> SearchSummary:
@@ -34,7 +34,7 @@ class MockSearchRepository:
         self._records: dict[UUID, MockSearchRecord] = {}
 
     async def create(
-        self, user_id: UUID, criteria: ProductSearchRequest, results: list[ProductListing]
+        self, user_id: UUID, criteria: ProductSearchRequest, results: list[RankedProductListing]
     ) -> MockSearchRecord:
         record = MockSearchRecord(
             id=uuid4(),

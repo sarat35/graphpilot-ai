@@ -12,7 +12,21 @@ class Settings(BaseSettings):
 
     openai_api_key: str = ""
     anthropic_api_key: str = ""
-    intelligence_model_name: str = "gpt-5-mini"
+    # One model is deliberately shared by LangGraph and every product-search agent.
+    ai_orchestration_model_name: str = "gpt-5.4-mini"
+    intelligence_model_name: str = "gpt-5.4-mini"  # Backwards-compatible setting for chat.
+    product_search_research_system_prompt: str = (
+        "You research public Hyderabad used-car listings. "
+        "Use only approved sources and never invent data."
+    )
+    product_search_ranking_system_prompt: str = (
+        "You explain deterministic used-car ranking results "
+        "without changing their calculated scores."
+    )
+    product_search_allowed_city: str = "Hyderabad"
+    product_search_allowed_domains: str = "cars24.com,carwale.com,cartrade.com,spinny.com,olx.in"
+    product_search_max_candidates: int = 100
+    product_search_top_results: int = 10
     product_search_mode: str = "mock"
     google_serper_api_key: str = ""
     google_serper_base_url: str = "https://google.serper.dev/search"

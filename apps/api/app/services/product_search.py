@@ -1,12 +1,12 @@
 from app.config.settings import settings
 from app.graphs.product_search import ProductSearchAgent
-from app.integrations.google_serper import GoogleSerperClient, MockGoogleSerperClient
+from app.integrations.google_serper import LangChainGoogleSerperClient, MockGoogleSerperClient
 from app.schemas.product_search import ProductSearchRequest, ProductSearchResponse
 
 
 def build_product_search_agent() -> ProductSearchAgent:
     if settings.product_search_mode.lower() == "live":
-        client = GoogleSerperClient(settings.google_serper_api_key, settings.google_serper_base_url)
+        client = LangChainGoogleSerperClient(settings.google_serper_api_key)
         source = "google_serper"
     else:
         client = MockGoogleSerperClient()
@@ -14,7 +14,7 @@ def build_product_search_agent() -> ProductSearchAgent:
 
     return ProductSearchAgent(
         search_client=client,
-        model_name=settings.intelligence_model_name,
+        model_name=settings.ai_orchestration_model_name,
         result_source=source,
     )
 
