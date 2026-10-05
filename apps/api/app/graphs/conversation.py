@@ -17,13 +17,8 @@ def build_conversation_graph():
             (
                 city
                 for city in [
-                    "ahmedabad",
                     "bengaluru",
-                    "chennai",
-                    "delhi",
-                    "hyderabad",
-                    "mumbai",
-                    "pune",
+                    "hyderabad"
                 ]
                 if city in text
             ),
